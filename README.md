@@ -15,7 +15,7 @@ sudo apt upgrade
 
 This is the current raccomanded version, the execution shuld advise you if there is a new version.
 
-
+```
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install /y nodejs
 ```
@@ -45,11 +45,11 @@ npm install express sqlite3 body-parser
 node server.js
 ```
 
-	6.1 Access from web
+7. Access from web
 
-		Open a browser and go to http://\<raspberry ip address>:3000
+Open a browser and go to http://\<raspberry ip address>:3000
 
-7. Auto start the server at the boot
+8. Auto start the server at the boot
 
 Auto-start the server on boot: You can use pm2 to manage and auto-start your Node.js server on boot. Install pm2 globally:
 

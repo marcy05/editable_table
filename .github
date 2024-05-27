@@ -1,0 +1,6 @@
+# Folders
+note_modules/*
+*.env
+
+# Files
+package-lock.json

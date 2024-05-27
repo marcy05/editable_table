@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editable Table</title>
+  <style>
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid black; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    button { margin: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Editable Table</h1>
+  <button onclick="addRow()">Add Row</button>
+  <button onclick="addColumn()">Add Column</button>
+  <button onclick="saveChanges()">Save Changes</button>
+  <button onclick="factoryReset()">Factory Reset</button>
+  <table id="data-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Column 1</th>
+        <th>Column 2</th>
+        <th>Column 3</th>
+        <th>Column 4</th>
+        <th>Column 5</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', loadTable);
+
+    function loadTable() {
+      fetch('/data')
+        .then(response => response.json())
+        .then(data => {
+          const tbody = document.querySelector('#data-table tbody');
+          tbody.innerHTML = '';  // Clear the table body first
+          data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${row.id}</td>
+              ${Object.keys(row).filter(key => key.startsWith('col')).map(key => `<td contenteditable="true">${row[key]}</td>`).join('')}
+              <td><button onclick="removeRow(${row.id}, this)">Remove</button></td>
+            `;
+            tbody.appendChild(tr);
+          });
+          observeChanges();
+        });
+    }
+
+    function saveChanges() {
+      const rows = document.querySelectorAll('#data-table tbody tr');
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const data = {
+          id: cells[0].textContent,
+          ...Array.from(cells).slice(1, -1).reduce((acc, cell, idx) => {
+            acc[`col${idx + 1}`] = cell.textContent;
+            return acc;
+          }, {})
+        };
+        fetch('/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        });
+      });
+    }
+
+    function addRow() {
+      fetch('/add-row', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+          const tbody = document.querySelector('#data-table tbody');
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${data.id}</td>
+            ${Array.from(document.querySelectorAll('#data-table thead th')).slice(1, -1).map(() => '<td contenteditable="true"></td>').join('')}
+            <td><button onclick="removeRow(${data.id}, this)">Remove</button></td>
+          `;
+          tbody.appendChild(tr);
+          observeChanges();  // Re-observe changes after adding a row
+          saveChanges();  // Automatically save after adding a row
+        });
+    }
+
+    function removeRow(id, button) {
+      fetch('/remove-row', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      }).then(() => {
+        button.parentElement.parentElement.remove();
+        saveChanges();  // Automatically save after removing a row
+      });
+    }
+
+    function addColumn() {
+      const columnName = prompt('Enter column name:');
+      if (columnName) {
+        fetch('/add-column', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ columnName })
+        }).then(() => {
+          const theadRow = document.querySelector('#data-table thead tr');
+          const newHeader = document.createElement('th');
+          newHeader.textContent = columnName;
+          theadRow.insertBefore(newHeader, theadRow.lastElementChild);
+
+          const rows = document.querySelectorAll('#data-table tbody tr');
+          rows.forEach(row => {
+            const newCell = document.createElement('td');
+            newCell.contentEditable = true;
+            row.insertBefore(newCell, row.lastElementChild);
+          });
+          observeChanges();  // Re-observe changes after adding a column
+          saveChanges();  // Automatically save after adding a column
+        });
+      }
+    }
+
+    function observeChanges() {
+      const tbody = document.querySelector('#data-table tbody');
+      const observer = new MutationObserver(() => {
+        saveChanges();
+      });
+      observer.disconnect();  // Disconnect previous observers
+      observer.observe(tbody, { childList: true, subtree: true, characterData: true });
+    }
+
+    function factoryReset() {
+      if (confirm('Are you sure you want to reset the table to its factory settings?')) {
+        fetch('/factory-reset', { method: 'POST' })
+          .then(() => loadTable());  // Reload the table after reset
+      }
+    }
+
+  </script>
+</body>
+</html>
